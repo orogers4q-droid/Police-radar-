@@ -46,6 +46,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -344,7 +345,7 @@ private fun MarkDeviceDialog(
             add(Option("Anything named \"${obs.name}\"", type, obs.name))
         }
     }
-    var selected by remember { mutableStateOf(0) }
+    var selected by remember { mutableIntStateOf(0) }
     var label by remember { mutableStateOf(obs.name ?: "Police device") }
 
     AlertDialog(
