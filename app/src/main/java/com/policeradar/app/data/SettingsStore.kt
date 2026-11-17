@@ -49,6 +49,7 @@ class SettingsStore private constructor(context: Context) {
             .putBoolean("vibrate", s.vibrate)
             .putBoolean("voice", s.voice)
             .putStringSet("alertCategories", s.alertCategories.map { it.name }.toSet())
+            .putStringSet("knownCategories", Category.entries.map { it.name }.toSet())
             .putBoolean("learningMode", s.learningMode)
             .apply()
         _settings.value = s
@@ -127,11 +128,17 @@ class SettingsStore private constructor(context: Context) {
             sound = prefs.getBoolean("sound", d.sound),
             vibrate = prefs.getBoolean("vibrate", d.vibrate),
             voice = prefs.getBoolean("voice", d.voice),
-            alertCategories = prefs.getStringSet("alertCategories", null)
-                ?.mapNotNull { runCatching { Category.valueOf(it) }.getOrNull() }?.toSet()
-                ?: d.alertCategories,
+            alertCategories = loadAlertCategories() ?: d.alertCategories,
             learningMode = prefs.getBoolean("learningMode", d.learningMode),
         )
+    }
+
+    /** Saved choice, plus any category added in an app update since it was saved (on by default). */
+    private fun loadAlertCategories(): Set<Category>? {
+        val saved = prefs.getStringSet("alertCategories", null) ?: return null
+        val known = prefs.getStringSet("knownCategories", null)
+            ?: setOf(Category.POLICE, Category.FIRE, Category.EMS, Category.RESPONDER).map { it.name }.toSet()
+        return Category.entries.filter { it.name in saved || it.name !in known }.toSet()
     }
 
     companion object {

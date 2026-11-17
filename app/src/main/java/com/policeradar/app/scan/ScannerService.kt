@@ -153,6 +153,8 @@ class ScannerService : Service() {
     }
 
     private fun onBle(r: BleScanResult) {
+        val makerData = r.scanRecord?.manufacturerSpecificData
+        val makerIds = if (makerData == null) emptySet() else (0 until makerData.size()).map(makerData::keyAt).toSet()
         handle(
             Observation(
                 SignalSource.BLUETOOTH,
@@ -160,6 +162,7 @@ class ScannerService : Service() {
                 r.scanRecord?.deviceName,
                 r.rssi,
                 System.currentTimeMillis(),
+                makerIds,
             ),
         )
     }

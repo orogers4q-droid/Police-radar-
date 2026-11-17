@@ -1,6 +1,6 @@
 # Police Radar
 
-An Android app that listens for the radio signals emergency-service equipment gives off — in-car Wi-Fi routers, body cameras, Tasers — and **pings your phone when police 🚓, fire 🚒 or an ambulance 🚑 gets close, telling you which.** Everyday Wi-Fi and Bluetooth devices are ignored.
+An Android app that listens for the radio signals emergency-service equipment gives off — in-car Wi-Fi routers, body cameras, Tasers — and **pings your phone when police 🚓, fire 🚒 or an ambulance 🚑 gets close, telling you which.** It also spots **Flock Safety license-plate cameras 📷**. Everyday Wi-Fi and Bluetooth devices are ignored.
 
 It only *listens*. It never connects to, transmits to, or interferes with anything.
 
@@ -24,6 +24,9 @@ It only *listens*. It never connects to, transmits to, or interferes with anythi
 | Police vehicle Wi-Fi | 🚓 Police | Wi-Fi name has a word like `police`, `sheriff`, `patrol`, `trooper`, `deputy`, `K9` | Possible |
 | Fire apparatus Wi-Fi | 🚒 Fire | Wi-Fi name has a word like `engine`, `ladder`, `battalion`, `VFD`, `fire dept` (ignores Fire TV / Firestick / Kindle Fire) | Possible |
 | Ambulance Wi-Fi | 🚑 Ambulance | Wi-Fi name has a word like `medic`, `ambulance`, `EMS`, `paramedic` | Possible |
+| Flock camera Wi-Fi | 📷 Flock camera | Wi-Fi name has `Flock` (e.g. `Flock-A1B2C3`), `FS Ext Battery` or `Pigvision` | Likely |
+| Flock camera Bluetooth | 📷 Flock camera | Bluetooth name has `Flock`, `FS Ext Battery`, `Pigvision` or `Penguin` | Possible |
+| Flock battery pack | 📷 Flock camera | Bluetooth maker ID `0x09C8` | Possible |
 | Cradlepoint vehicle router | 🚨 Emergency vehicle | Hardware address starts with `00:30:44` | Possible |
 | Cradlepoint router, default name | 🚨 Emergency vehicle | Wi-Fi name contains `IBR900`, `IBR1700`, … | Possible |
 
@@ -32,6 +35,7 @@ Name words must stand on their own: `ENGINE 12` or `ENGINE12` match, `Enginetics
 ### Honest limitations
 
 - **Matches are educated guesses.** Cradlepoint routers are shared by police, fire and EMS (and some buses and businesses), so they show as "Emergency vehicle". Departments name their Wi-Fi differently, and some gear doesn't broadcast at all. Expect some misses and false alarms — teaching the app your local departments' devices helps a lot.
+- **Flock detection is based on community research** (projects like "flock-you"). Flock changes its hardware over time, and newer cameras may not broadcast these names. Hardware-address prefixes are deliberately not used for Flock: the published lists include chip makers found in everyday gadgets and cause constant false alarms.
 - **Android only.** iPhones don't let apps scan Wi-Fi or see Bluetooth hardware addresses, so this can't work on iOS.
 - **Keep the screen on.** Many phones pause Bluetooth scanning when the screen turns off, so the app keeps the screen awake while scanning. Mount your phone.
 - **Range** is roughly 50–150 m for Wi-Fi and 10–50 m for Bluetooth, depending on the gear and obstacles.

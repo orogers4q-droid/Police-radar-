@@ -38,7 +38,7 @@ class AlertNotifier(private val context: Context) {
         val nm = context.getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(
             NotificationChannel(CH_ALERTS, "Emergency vehicle alerts", NotificationManager.IMPORTANCE_HIGH).apply {
-                description = "Pops up when police, fire or ambulance equipment is detected nearby"
+                description = "Pops up when police, fire, ambulance equipment or a Flock camera is detected nearby"
                 // Sound and vibration are played by the app so they follow the in-app settings.
                 setSound(null, null)
                 enableVibration(false)
@@ -64,7 +64,7 @@ class AlertNotifier(private val context: Context) {
         return NotificationCompat.Builder(context, CH_SCANNER)
             .setSmallIcon(R.drawable.ic_radar)
             .setContentTitle("Police Radar is scanning")
-            .setContentText("Listening for police, fire and ambulance signals")
+            .setContentText("Listening for police, fire, ambulances and Flock cameras")
             .setOngoing(true)
             .setContentIntent(openAppIntent())
             .addAction(0, "Stop", stop)
@@ -146,9 +146,10 @@ class AlertNotifier(private val context: Context) {
     companion object {
         /** "Police nearby", or "Possible ambulance nearby" for weaker matches. */
         fun alertHeadline(signature: Signature): String {
-            val what = signature.category.label
+            val c = signature.category
+            val what = if (c == com.policeradar.app.detect.Category.CAMERA) c.inSentence else c.label
             return if (signature.confidence == com.policeradar.app.detect.Confidence.HIGH) "$what nearby"
-            else "Possible ${what.lowercase()} nearby"
+            else "Possible ${c.inSentence} nearby"
         }
 
         const val CH_ALERTS = "alerts"

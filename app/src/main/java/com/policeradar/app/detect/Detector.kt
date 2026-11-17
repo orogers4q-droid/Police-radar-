@@ -7,6 +7,8 @@ data class Observation(
     val name: String?,
     val rssi: Int,
     val timeMs: Long,
+    /** Bluetooth "manufacturer specific data" company IDs in the advertisement. */
+    val manufacturerIds: Set<Int> = emptySet(),
 ) {
     val key: String get() = "${source.name}:${Detector.normalizeMac(address)}"
 }
@@ -42,6 +44,9 @@ object Detector {
                 obs.source == SignalSource.WIFI && nameMatches(obs.name, signature)
             MatchType.BLE_NAME ->
                 obs.source == SignalSource.BLUETOOTH && nameMatches(obs.name, signature)
+            MatchType.BLE_MANUFACTURER ->
+                obs.source == SignalSource.BLUETOOTH &&
+                    signature.patterns.mapNotNull(::parseId).any { it in obs.manufacturerIds }
         }
     }
 
@@ -52,6 +57,16 @@ object Detector {
     fun match(signatures: List<Signature>, obs: Observation): Signature? =
         signatures.filter { matches(it, obs) }
             .minWithOrNull(compareBy<Signature> { it.confidence.ordinal }.thenBy { it.category.ordinal })
+
+    /** "0x09C8", "09c8" or "2504" (decimal) to an integer ID. */
+    fun parseId(s: String): Int? {
+        val t = s.trim().lowercase()
+        return when {
+            t.startsWith("0x") -> t.removePrefix("0x").toIntOrNull(16)
+            t.any { it in 'a'..'f' } -> t.toIntOrNull(16)
+            else -> t.toIntOrNull()
+        }
+    }
 
     /** Lowercase, with "-", "_" and "." turned into spaces so "FIRE-DEPT_2" reads as "fire dept 2". */
     private fun normalizeName(s: String): String =

@@ -56,6 +56,30 @@ class DetectorTest {
     }
 
     @Test
+    fun flockCameras() {
+        listOf("Flock-A1B2C3", "FLOCK_7F2E", "FS Ext Battery", "Pigvision").forEach {
+            assertEquals(it, Category.CAMERA, categoryOf(wifi(plainMac, it)))
+        }
+        assertEquals(Category.CAMERA, categoryOf(ble("C0:11:22:33:44:55", "Penguin-0042")))
+        assertEquals(
+            "flock_ble_maker",
+            Detector.match(sigs, ble(plainMac).copy(manufacturerIds = setOf(0x004C, 0x09C8)))?.id,
+        )
+        // Apple's ID alone, "Flockhart" and a Wi-Fi "Penguin" don't count.
+        assertNull(Detector.match(sigs, ble(plainMac).copy(manufacturerIds = setOf(0x004C))))
+        assertNull(Detector.match(sigs, wifi(plainMac, "Flockhart Family")))
+        assertNull(Detector.match(sigs, wifi(plainMac, "Penguin House")))
+    }
+
+    @Test
+    fun parseIds() {
+        assertEquals(0x09C8, Detector.parseId("0x09C8"))
+        assertEquals(0x09C8, Detector.parseId("09c8"))
+        assertEquals(2504, Detector.parseId("2504"))
+        assertNull(Detector.parseId("zz"))
+    }
+
+    @Test
     fun cradlepointIsGenericButSpecificNameWins() {
         assertEquals(Category.RESPONDER, categoryOf(wifi("00:30:44:11:22:33", "IBR900-7d2")))
         assertEquals(Category.RESPONDER, categoryOf(wifi(plainMac, "IBR1700-abc")))

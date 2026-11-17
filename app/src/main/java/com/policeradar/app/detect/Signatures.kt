@@ -5,18 +5,23 @@ enum class SignalSource(val label: String) {
     BLUETOOTH("Bluetooth"),
 }
 
-/** Who the equipment belongs to. [RESPONDER] = used by several services, can't tell which. */
-enum class Category(val label: String, val emoji: String) {
-    POLICE("Police", "🚓"),
-    FIRE("Fire", "🚒"),
-    EMS("Ambulance", "🚑"),
-    RESPONDER("Emergency vehicle", "🚨"),
+/**
+ * Who the equipment belongs to. [RESPONDER] = used by several services, can't tell which.
+ * [inSentence] is the label as it reads mid-sentence ("Possible ambulance nearby").
+ */
+enum class Category(val label: String, val emoji: String, val inSentence: String) {
+    POLICE("Police", "🚓", "police"),
+    FIRE("Fire", "🚒", "fire"),
+    EMS("Ambulance", "🚑", "ambulance"),
+    CAMERA("Flock / plate camera", "📷", "Flock camera"),
+    RESPONDER("Emergency vehicle", "🚨", "emergency vehicle"),
 }
 
 enum class MatchType(val label: String, val hint: String) {
     MAC_PREFIX("Hardware address starts with", "e.g. 00:25:DF"),
     WIFI_NAME("Wi-Fi name contains", "e.g. PATROL"),
     BLE_NAME("Bluetooth name contains", "e.g. Axon"),
+    BLE_MANUFACTURER("Bluetooth maker ID is", "e.g. 0x09C8"),
 }
 
 /** How strongly a match suggests an emergency service. Lower ordinal = stronger. */
@@ -110,6 +115,44 @@ object BuiltInSignatures {
             patterns = listOf("ambulance", "medic", "paramedic", "ems", "rescue squad", "emt"),
             confidence = Confidence.MEDIUM,
             wholeWord = true,
+            builtIn = true,
+        ),
+
+        // ---- Flock Safety license-plate cameras ----
+        // Patterns reported by community detection projects (e.g. "flock-you"). Flock changes
+        // its hardware over time, so these may miss newer units.
+        Signature(
+            id = "flock_wifi_name",
+            label = "Flock camera Wi-Fi",
+            description = "Flock Safety license-plate cameras and their battery packs broadcast Wi-Fi " +
+                "names like \"Flock-A1B2C3\" or \"FS Ext Battery\".",
+            category = Category.CAMERA,
+            matchType = MatchType.WIFI_NAME,
+            patterns = listOf("flock", "fs ext battery", "pigvision"),
+            confidence = Confidence.HIGH,
+            wholeWord = true,
+            builtIn = true,
+        ),
+        Signature(
+            id = "flock_ble_name",
+            label = "Flock camera Bluetooth",
+            description = "Bluetooth names used by Flock cameras and their \"Penguin\" battery packs.",
+            category = Category.CAMERA,
+            matchType = MatchType.BLE_NAME,
+            patterns = listOf("flock", "fs ext battery", "pigvision", "penguin"),
+            confidence = Confidence.MEDIUM,
+            wholeWord = true,
+            builtIn = true,
+        ),
+        Signature(
+            id = "flock_ble_maker",
+            label = "Flock battery pack (Bluetooth maker ID)",
+            description = "Bluetooth maker ID 0x09C8, reported on Flock camera battery packs. " +
+                "The same ID may appear on some unrelated gadgets.",
+            category = Category.CAMERA,
+            matchType = MatchType.BLE_MANUFACTURER,
+            patterns = listOf("0x09C8"),
+            confidence = Confidence.MEDIUM,
             builtIn = true,
         ),
 

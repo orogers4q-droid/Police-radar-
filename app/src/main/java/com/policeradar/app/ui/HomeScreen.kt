@@ -188,7 +188,7 @@ private fun StatusCard(scanning: Boolean, responders: List<SeenDevice>, onStart:
                 when {
                     !scanning -> "Tap start before you drive"
                     alert -> "${responders.size} emergency signal${if (responders.size == 1) "" else "s"} in range"
-                    else -> "Listening for police, fire and ambulances"
+                    else -> "Listening for police, fire, ambulances and Flock cameras"
                 },
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -320,7 +320,7 @@ private fun HowItWorks() {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("How it works", fontWeight = FontWeight.Bold)
-            Text("Patrol cars, fire trucks and ambulances carry gear that constantly broadcasts radio signals: in-car Wi-Fi routers, body cameras, Tasers. Police Radar listens for those signals and pings you when one gets close, telling you whether it's police 🚓, fire 🚒 or an ambulance 🚑.")
+            Text("Patrol cars, fire trucks and ambulances carry gear that constantly broadcasts radio signals: in-car Wi-Fi routers, body cameras, Tasers. Police Radar listens for those signals and pings you when one gets close, telling you whether it's police 🚓, fire 🚒 or an ambulance 🚑. It also spots Flock license-plate cameras 📷.")
             Text("Everyday Wi-Fi and Bluetooth devices are ignored.")
             Text("It only listens. It never connects to, or interferes with, anything.")
             Text(
