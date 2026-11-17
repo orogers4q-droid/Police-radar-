@@ -37,6 +37,18 @@ Environment variables:
 
 > Browsers only allow geolocation on `https://` or `localhost`. To test on a phone, put the server behind HTTPS (for example a reverse proxy or a tunnel).
 
+## Android app (Android Studio)
+
+The `android/` folder is a [Capacitor](https://capacitorjs.com) project that opens the app in a full-screen WebView. The app loads its pages from the server named in `capacitor.config.json` (`server.url`), so a server has to be running.
+
+1. Install Node 20+ and Android Studio.
+2. Set `server.url` in `capacitor.config.json`:
+   - your deployed address, e.g. `https://your-app.onrender.com` (then you can remove `"cleartext": true`), or
+   - leave it at `http://localhost:3000` to test against `npm start` on your computer. Run `adb reverse tcp:3000 tcp:3000` after connecting the phone or starting the emulator.
+3. Run `npm install`, then `npm run android:sync` (repeat this every time you change `capacitor.config.json`).
+4. Run `npm run android:open`, or in Android Studio choose **File → Open** and pick the `android` folder.
+5. Wait for Gradle to sync, pick a device, and press **Run**.
+
 ## API
 
 All write requests need an `X-Client-Id` header: a random per-device ID of 8–64 characters from `[A-Za-z0-9_-]`.
