@@ -24,7 +24,8 @@ It only *listens*. It never connects to, transmits to, or interferes with anythi
 | Police vehicle Wi-Fi | 🚓 Police | Wi-Fi name has a word like `police`, `sheriff`, `patrol`, `trooper`, `deputy`, `K9` | Possible |
 | Fire apparatus Wi-Fi | 🚒 Fire | Wi-Fi name has a word like `engine`, `ladder`, `battalion`, `VFD`, `fire dept` (ignores Fire TV / Firestick / Kindle Fire) | Possible |
 | Ambulance Wi-Fi | 🚑 Ambulance | Wi-Fi name has a word like `medic`, `ambulance`, `EMS`, `paramedic` | Possible |
-| Flock camera Wi-Fi | 📷 Flock camera | Wi-Fi name has `Flock` (e.g. `Flock-A1B2C3`), `FS Ext Battery` or `Pigvision` | Likely |
+| Flock camera hardware address | 📷 Flock camera | Address starts with `B4:1E:52` (Flock Safety's own registered block) | Likely |
+| Flock camera Wi-Fi | 📷 Flock camera | Wi-Fi name has `Flock`, `Flock Safety`, `FS Ext Battery` or `Pigvision` | Likely |
 | Flock camera Bluetooth | 📷 Flock camera | Bluetooth name has `Flock`, `FS Ext Battery`, `Pigvision` or `Penguin` | Possible |
 | Flock battery pack | 📷 Flock camera | Bluetooth maker ID `0x09C8` | Possible |
 | Cradlepoint vehicle router | 🚨 Emergency vehicle | Hardware address starts with `00:30:44` | Possible |

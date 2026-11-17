@@ -122,13 +122,24 @@ object BuiltInSignatures {
         // Patterns reported by community detection projects (e.g. "flock-you"). Flock changes
         // its hardware over time, so these may miss newer units.
         Signature(
+            id = "flock_mac",
+            label = "Flock camera (hardware address)",
+            description = "Hardware address registered to Flock Safety (IEEE block B4:1E:52), " +
+                "found in a Flock camera firmware dump.",
+            category = Category.CAMERA,
+            matchType = MatchType.MAC_PREFIX,
+            patterns = listOf("B4:1E:52"),
+            confidence = Confidence.HIGH,
+            builtIn = true,
+        ),
+        Signature(
             id = "flock_wifi_name",
             label = "Flock camera Wi-Fi",
             description = "Flock Safety license-plate cameras and their battery packs broadcast Wi-Fi " +
-                "names like \"Flock-A1B2C3\" or \"FS Ext Battery\".",
+                "names like \"Flock-A1B2C3\", \"FS_Camera\" or \"FS Ext Battery\".",
             category = Category.CAMERA,
             matchType = MatchType.WIFI_NAME,
-            patterns = listOf("flock", "fs ext battery", "pigvision"),
+            patterns = listOf("flock", "flock safety", "fs ext battery", "pigvision"),
             confidence = Confidence.HIGH,
             wholeWord = true,
             builtIn = true,

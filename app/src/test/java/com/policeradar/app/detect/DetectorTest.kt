@@ -61,6 +61,8 @@ class DetectorTest {
             assertEquals(it, Category.CAMERA, categoryOf(wifi(plainMac, it)))
         }
         assertEquals(Category.CAMERA, categoryOf(ble("C0:11:22:33:44:55", "Penguin-0042")))
+        // Flock's own registered hardware block.
+        assertEquals("flock_mac", Detector.match(sigs, wifi("b4:1e:52:aa:bb:cc"))?.id)
         assertEquals(
             "flock_ble_maker",
             Detector.match(sigs, ble(plainMac).copy(manufacturerIds = setOf(0x004C, 0x09C8)))?.id,
