@@ -3,6 +3,7 @@ package com.policeradar.app.data
 import android.content.Context
 import android.content.SharedPreferences
 import com.policeradar.app.detect.BuiltInSignatures
+import com.policeradar.app.detect.Category
 import com.policeradar.app.detect.Confidence
 import com.policeradar.app.detect.MatchType
 import com.policeradar.app.detect.Signature
@@ -21,6 +22,10 @@ data class AppSettings(
     val sound: Boolean = true,
     val vibrate: Boolean = true,
     val voice: Boolean = true,
+    /** Which kinds of emergency service trigger alerts. */
+    val alertCategories: Set<Category> = Category.entries.toSet(),
+    /** Show every nearby device so the user can mark unknown ones (off = responders only). */
+    val learningMode: Boolean = false,
 )
 
 /** Persists settings and signatures, and exposes them as flows shared by the UI and the scanner. */
@@ -43,6 +48,8 @@ class SettingsStore private constructor(context: Context) {
             .putBoolean("sound", s.sound)
             .putBoolean("vibrate", s.vibrate)
             .putBoolean("voice", s.voice)
+            .putStringSet("alertCategories", s.alertCategories.map { it.name }.toSet())
+            .putBoolean("learningMode", s.learningMode)
             .apply()
         _settings.value = s
     }
@@ -54,11 +61,12 @@ class SettingsStore private constructor(context: Context) {
         _signatures.value = loadSignatures()
     }
 
-    fun addCustom(label: String, matchType: MatchType, patterns: List<String>) {
+    fun addCustom(label: String, category: Category, matchType: MatchType, patterns: List<String>) {
         val sig = Signature(
             id = "custom_" + UUID.randomUUID(),
             label = label.ifBlank { "My signature" },
             description = "Added by you.",
+            category = category,
             matchType = matchType,
             patterns = patterns.map { it.trim() }.filter { it.isNotEmpty() },
             confidence = Confidence.HIGH,
@@ -75,6 +83,7 @@ class SettingsStore private constructor(context: Context) {
                 JSONObject()
                     .put("id", s.id)
                     .put("label", s.label)
+                    .put("category", s.category.name)
                     .put("matchType", s.matchType.name)
                     .put("patterns", JSONArray(s.patterns)),
             )
@@ -94,6 +103,7 @@ class SettingsStore private constructor(context: Context) {
                     id = o.getString("id"),
                     label = o.getString("label"),
                     description = "Added by you.",
+                    category = runCatching { Category.valueOf(o.optString("category")) }.getOrDefault(Category.POLICE),
                     matchType = MatchType.valueOf(o.getString("matchType")),
                     patterns = (0 until p.length()).map { p.getString(it) },
                     confidence = Confidence.HIGH,
@@ -117,6 +127,10 @@ class SettingsStore private constructor(context: Context) {
             sound = prefs.getBoolean("sound", d.sound),
             vibrate = prefs.getBoolean("vibrate", d.vibrate),
             voice = prefs.getBoolean("voice", d.voice),
+            alertCategories = prefs.getStringSet("alertCategories", null)
+                ?.mapNotNull { runCatching { Category.valueOf(it) }.getOrNull() }?.toSet()
+                ?: d.alertCategories,
+            learningMode = prefs.getBoolean("learningMode", d.learningMode),
         )
     }
 

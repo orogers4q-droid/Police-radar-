@@ -39,19 +39,36 @@ object Detector {
                 }
             }
             MatchType.WIFI_NAME ->
-                obs.source == SignalSource.WIFI && nameMatches(obs.name, signature.patterns)
+                obs.source == SignalSource.WIFI && nameMatches(obs.name, signature)
             MatchType.BLE_NAME ->
-                obs.source == SignalSource.BLUETOOTH && nameMatches(obs.name, signature.patterns)
+                obs.source == SignalSource.BLUETOOTH && nameMatches(obs.name, signature)
         }
     }
 
-    /** The strongest-confidence signature matching [obs], or null if none match. */
+    /**
+     * The best signature matching [obs], or null if none match: strongest confidence first,
+     * then a specific service (police/fire/ambulance) over the generic "emergency vehicle".
+     */
     fun match(signatures: List<Signature>, obs: Observation): Signature? =
-        signatures.filter { matches(it, obs) }.minByOrNull { it.confidence.ordinal }
+        signatures.filter { matches(it, obs) }
+            .minWithOrNull(compareBy<Signature> { it.confidence.ordinal }.thenBy { it.category.ordinal })
 
-    private fun nameMatches(name: String?, patterns: List<String>): Boolean {
+    /** Lowercase, with "-", "_" and "." turned into spaces so "FIRE-DEPT_2" reads as "fire dept 2". */
+    private fun normalizeName(s: String): String =
+        s.lowercase().replace(Regex("[-_.]+"), " ").replace(Regex("\\s+"), " ").trim()
+
+    private fun nameMatches(name: String?, signature: Signature): Boolean {
         if (name.isNullOrBlank()) return false
-        return patterns.any { it.isNotBlank() && name.contains(it.trim(), ignoreCase = true) }
+        val n = normalizeName(name)
+        if (signature.excludes.any { n.contains(normalizeName(it)) }) return false
+        return signature.patterns.any { raw ->
+            val p = normalizeName(raw)
+            when {
+                p.isEmpty() -> false
+                signature.wholeWord -> Regex("(?<![a-z])${Regex.escape(p)}(?![a-z])").containsMatchIn(n)
+                else -> n.contains(p)
+            }
+        }
     }
 }
 

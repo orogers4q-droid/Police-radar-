@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.policeradar.app.data.AppSettings
+import com.policeradar.app.detect.Category
 import com.policeradar.app.detect.Proximity
 import kotlin.math.roundToInt
 
@@ -47,6 +48,20 @@ fun SettingsScreen(settings: AppSettings, onChange: (AppSettings) -> Unit, onBac
             Modifier.fillMaxSize().padding(padding).padding(16.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Alert me for", fontWeight = FontWeight.SemiBold)
+                Category.entries.forEach { c ->
+                    val on = c in settings.alertCategories
+                    Toggle(
+                        "${c.emoji} ${c.label}",
+                        if (c == Category.RESPONDER) "Equipment shared by several services, so the type is unknown" else null,
+                        on,
+                    ) { checked ->
+                        onChange(settings.copy(alertCategories = if (checked) settings.alertCategories + c else settings.alertCategories - c))
+                    }
+                }
+            }
+
             Column {
                 Text("Alert range", fontWeight = FontWeight.SemiBold)
                 Text(
@@ -79,9 +94,16 @@ fun SettingsScreen(settings: AppSettings, onChange: (AppSettings) -> Unit, onBac
 
             Toggle("Siren sound", "Plays a short alarm tone", settings.sound) { onChange(settings.copy(sound = it)) }
             Toggle("Vibrate", "Buzzes the phone", settings.vibrate) { onChange(settings.copy(vibrate = it)) }
-            Toggle("Spoken alerts", "Reads the alert out loud, e.g. \"Likely police. Axon equipment, close.\"", settings.voice) {
+            Toggle("Spoken alerts", "Reads the alert out loud, e.g. \"Police nearby, close.\"", settings.voice) {
                 onChange(settings.copy(voice = it))
             }
+
+            Toggle(
+                "Learning mode",
+                "Also list ordinary nearby devices so you can tap one and teach the app it's police, fire or an ambulance. " +
+                    "Turn it on when parked next to an emergency vehicle.",
+                settings.learningMode,
+            ) { onChange(settings.copy(learningMode = it)) }
 
             Text(
                 "Tip: many phones pause Bluetooth scanning when the screen is off, so the app keeps the " +
@@ -94,11 +116,13 @@ fun SettingsScreen(settings: AppSettings, onChange: (AppSettings) -> Unit, onBac
 }
 
 @Composable
-private fun Toggle(title: String, subtitle: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+private fun Toggle(title: String, subtitle: String?, checked: Boolean, onChange: (Boolean) -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(title, fontWeight = FontWeight.SemiBold)
-            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (subtitle != null) {
+                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
         Switch(checked = checked, onCheckedChange = onChange)
     }

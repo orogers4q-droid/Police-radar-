@@ -39,7 +39,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -60,11 +59,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.policeradar.app.data.SeenDevice
+import com.policeradar.app.detect.Category
 import com.policeradar.app.detect.Confidence
 import com.policeradar.app.detect.Detector
 import com.policeradar.app.detect.MatchType
 import com.policeradar.app.detect.Proximity
 import com.policeradar.app.detect.SignalSource
+import com.policeradar.app.scan.AlertNotifier
 import kotlinx.coroutines.delay
 
 enum class Issue(val message: String, val action: String) {
@@ -80,18 +81,18 @@ fun HomeScreen(
     devices: List<SeenDevice>,
     issues: List<Issue>,
     problem: String?,
+    learningMode: Boolean,
     onStart: () -> Unit,
     onStop: () -> Unit,
     onFixIssue: (Issue) -> Unit,
-    onAddSignature: (label: String, type: MatchType, pattern: String) -> Unit,
+    onAddSignature: (label: String, category: Category, type: MatchType, pattern: String) -> Unit,
     onOpenSettings: () -> Unit,
     onOpenSignatures: () -> Unit,
 ) {
-    var showAll by remember { mutableStateOf(false) }
     var marking by remember { mutableStateOf<SeenDevice?>(null) }
     val now by produceNow()
 
-    val police = devices.filter { it.signature != null }
+    val responders = devices.filter { it.signature != null }
         .sortedWith(compareBy<SeenDevice> { it.signature!!.confidence.ordinal }.thenByDescending { it.latest.rssi })
     val others = devices.filter { it.signature == null }.sortedByDescending { it.latest.rssi }
 
@@ -114,7 +115,7 @@ fun HomeScreen(
             modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            item { StatusCard(scanning, police.size, devices.size, onStart, onStop) }
+            item { StatusCard(scanning, responders, onStart, onStop) }
 
             items(issues, key = { it.name }) { issue ->
                 IssueCard(issue.message, issue.action) { onFixIssue(issue) }
@@ -124,26 +125,22 @@ fun HomeScreen(
             }
 
             if (scanning) {
-                item { SectionTitle(if (police.isEmpty()) "No police signals right now" else "Police signals detected") }
-                items(police, key = { it.latest.key }) { d -> DeviceCard(d, now, highlight = true) {} }
-
-                item {
-                    Row(
-                        Modifier.fillMaxWidth().padding(top = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Column(Modifier.weight(1f)) {
-                            Text("Show all nearby signals", fontWeight = FontWeight.SemiBold)
+                if (responders.isNotEmpty()) {
+                    item { SectionTitle("Detected nearby") }
+                    items(responders, key = { it.latest.key }) { d -> DeviceCard(d, now, highlight = true) {} }
+                }
+                if (learningMode) {
+                    item {
+                        Column(Modifier.padding(top = 8.dp)) {
+                            SectionTitle("Learning mode: everything nearby")
                             Text(
-                                "Tap one to mark it as police so it alerts next time.",
+                                "Tap a device you know belongs to police, fire or an ambulance to teach the app. " +
+                                    "Turn learning mode off in Settings when you're done.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
-                        Switch(checked = showAll, onCheckedChange = { showAll = it })
                     }
-                }
-                if (showAll) {
                     items(others, key = { it.latest.key }) { d -> DeviceCard(d, now, highlight = false) { marking = d } }
                 }
             } else {
@@ -157,8 +154,8 @@ fun HomeScreen(
         MarkDeviceDialog(
             device = d,
             onDismiss = { marking = null },
-            onConfirm = { label, type, pattern ->
-                onAddSignature(label, type, pattern)
+            onConfirm = { label, category, type, pattern ->
+                onAddSignature(label, category, type, pattern)
                 marking = null
             },
         )
@@ -166,8 +163,9 @@ fun HomeScreen(
 }
 
 @Composable
-private fun StatusCard(scanning: Boolean, policeCount: Int, totalCount: Int, onStart: () -> Unit, onStop: () -> Unit) {
-    val alert = scanning && policeCount > 0
+private fun StatusCard(scanning: Boolean, responders: List<SeenDevice>, onStart: () -> Unit, onStop: () -> Unit) {
+    val alert = scanning && responders.isNotEmpty()
+    val top = responders.firstOrNull()?.signature
     Card(
         colors = CardDefaults.cardColors(
             containerColor = if (alert) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant,
@@ -180,14 +178,18 @@ private fun StatusCard(scanning: Boolean, policeCount: Int, totalCount: Int, onS
             Text(
                 when {
                     !scanning -> "Not scanning"
-                    alert -> "Police signal nearby!"
+                    top != null -> "${top.category.emoji} ${AlertNotifier.alertHeadline(top)}!"
                     else -> "All clear"
                 },
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
             )
             Text(
-                if (scanning) "$totalCount signals in range" else "Tap start before you drive",
+                when {
+                    !scanning -> "Tap start before you drive"
+                    alert -> "${responders.size} emergency signal${if (responders.size == 1) "" else "s"} in range"
+                    else -> "Listening for police, fire and ambulances"
+                },
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(16.dp))
@@ -239,11 +241,14 @@ private fun DeviceCard(d: SeenDevice, now: Long, highlight: Boolean, onClick: ()
         modifier = Modifier.fillMaxWidth().clickable(enabled = !highlight, onClick = onClick),
     ) {
         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(if (obs.source == SignalSource.WIFI) "📶" else "🔵", fontSize = 26.sp)
+            Text(sig?.category?.emoji ?: if (obs.source == SignalSource.WIFI) "📶" else "🔵", fontSize = 26.sp)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 if (sig != null) {
-                    Text(sig.confidence.label.uppercase(), color = accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        "${sig.confidence.label} ${sig.category.label}".uppercase(),
+                        color = accent, fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                    )
                     Text(sig.label, fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
                 } else {
                     Text(obs.name ?: "Unnamed ${obs.source.label} device", fontWeight = FontWeight.SemiBold)
@@ -315,10 +320,11 @@ private fun HowItWorks() {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("How it works", fontWeight = FontWeight.Bold)
-            Text("Patrol cars and officers carry gear that constantly broadcasts radio signals: in-car Wi-Fi routers, body cameras, Tasers. Police Radar listens for those signals and pings you when one gets close, telling you what it is.")
+            Text("Patrol cars, fire trucks and ambulances carry gear that constantly broadcasts radio signals: in-car Wi-Fi routers, body cameras, Tasers. Police Radar listens for those signals and pings you when one gets close, telling you whether it's police 🚓, fire 🚒 or an ambulance 🚑.")
+            Text("Everyday Wi-Fi and Bluetooth devices are ignored.")
             Text("It only listens. It never connects to, or interferes with, anything.")
             Text(
-                "Matches are educated guesses. The same routers are used by ambulances, buses and businesses, and some police gear isn't detectable. Always drive safely and legally.",
+                "Matches are educated guesses: some equipment is shared between services or also used by businesses, and some gear doesn't broadcast at all. Always drive safely and legally.",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodySmall,
             )
@@ -330,9 +336,10 @@ private fun HowItWorks() {
 private fun MarkDeviceDialog(
     device: SeenDevice,
     onDismiss: () -> Unit,
-    onConfirm: (label: String, type: MatchType, pattern: String) -> Unit,
+    onConfirm: (label: String, category: Category, type: MatchType, pattern: String) -> Unit,
 ) {
     val obs = device.latest
+    var category by remember { mutableStateOf(Category.POLICE) }
     val random = Detector.isRandomAddress(obs.address)
     data class Option(val text: String, val type: MatchType, val pattern: String)
     val options = buildList {
@@ -346,13 +353,16 @@ private fun MarkDeviceDialog(
         }
     }
     var selected by remember { mutableIntStateOf(0) }
-    var label by remember { mutableStateOf(obs.name ?: "Police device") }
+    var label by remember { mutableStateOf(obs.name ?: "My device") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Mark as police") },
+        title = { Text("Teach the app") },
         text = {
             Column {
+                Text("This belongs to:")
+                CategoryPicker(category) { category = it }
+                Spacer(Modifier.height(8.dp))
                 Text("Alert me when I'm near:")
                 options.forEachIndexed { i, opt ->
                     Row(
@@ -375,7 +385,7 @@ private fun MarkDeviceDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = { options[selected].let { onConfirm(label, it.type, it.pattern) } }) { Text("Save") }
+            TextButton(onClick = { options[selected].let { onConfirm(label, category, it.type, it.pattern) } }) { Text("Save") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
@@ -392,4 +402,20 @@ private fun produceNow(): androidx.compose.runtime.State<Long> {
         }
     }
     return state
+}
+
+/** Row of chips for picking police / fire / ambulance / emergency vehicle. */
+@Composable
+fun CategoryPicker(selected: Category, onSelect: (Category) -> Unit) {
+    Column {
+        Category.entries.forEach { c ->
+            Row(
+                Modifier.fillMaxWidth().selectable(selected = selected == c, onClick = { onSelect(c) }),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                RadioButton(selected = selected == c, onClick = { onSelect(c) })
+                Text("${c.emoji} ${c.label}")
+            }
+        }
+    }
 }

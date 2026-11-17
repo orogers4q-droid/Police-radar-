@@ -71,6 +71,7 @@ class MainActivity : ComponentActivity() {
 
         // When signatures change, re-label devices already on screen.
         LaunchedEffect(signatures) { DetectionRepository.rematch { Detector.match(signatures, it) } }
+        LaunchedEffect(settings.learningMode) { if (!settings.learningMode) DetectionRepository.dropUnmatched() }
 
         // Keep the screen on while scanning: many phones pause Bluetooth scans when it's off.
         LaunchedEffect(scanning) {
@@ -86,6 +87,7 @@ class MainActivity : ComponentActivity() {
                 devices = devices.values.toList(),
                 issues = issues,
                 problem = problem,
+                learningMode = settings.learningMode,
                 onStart = {
                     if (issues.any { it == Issue.PERMISSIONS }) {
                         permissionLauncher.launch(requiredPermissions())
@@ -101,7 +103,7 @@ class MainActivity : ComponentActivity() {
                         Issue.BLUETOOTH_OFF -> startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS))
                     }
                 },
-                onAddSignature = { label, type, pattern -> store.addCustom(label, type, listOf(pattern)) },
+                onAddSignature = { label, category, type, pattern -> store.addCustom(label, category, type, listOf(pattern)) },
                 onOpenSettings = { screen = Screen.SETTINGS },
                 onOpenSignatures = { screen = Screen.SIGNATURES },
             )
@@ -113,7 +115,7 @@ class MainActivity : ComponentActivity() {
             Screen.SIGNATURES -> SignaturesScreen(
                 signatures = signatures,
                 onToggle = store::setEnabled,
-                onAdd = { label, type, patterns -> store.addCustom(label, type, patterns) },
+                onAdd = { label, category, type, patterns -> store.addCustom(label, category, type, patterns) },
                 onDelete = store::removeCustom,
                 onBack = { screen = Screen.HOME },
             )

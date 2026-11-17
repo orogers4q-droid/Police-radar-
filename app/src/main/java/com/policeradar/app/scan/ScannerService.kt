@@ -213,8 +213,13 @@ class ScannerService : Service() {
     private fun handle(obs: Observation) {
         val settings = store.settings.value
         val signature = Detector.match(store.signatures.value, obs)
-        DetectionRepository.record(obs, signature)
-        if (signature != null && obs.rssi >= settings.minRssi && gate.shouldAlert(obs.key, obs.timeMs)) {
+        // Ordinary devices are only kept when the user is teaching the app (learning mode).
+        if (signature != null || settings.learningMode) DetectionRepository.record(obs, signature)
+        if (signature != null &&
+            signature.category in settings.alertCategories &&
+            obs.rssi >= settings.minRssi &&
+            gate.shouldAlert(obs.key, obs.timeMs)
+        ) {
             notifier.alert(obs, signature, settings)
         }
     }

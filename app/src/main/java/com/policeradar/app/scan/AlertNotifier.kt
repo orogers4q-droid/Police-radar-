@@ -37,8 +37,8 @@ class AlertNotifier(private val context: Context) {
     init {
         val nm = context.getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(
-            NotificationChannel(CH_ALERTS, "Police alerts", NotificationManager.IMPORTANCE_HIGH).apply {
-                description = "Pops up when police equipment is detected nearby"
+            NotificationChannel(CH_ALERTS, "Emergency vehicle alerts", NotificationManager.IMPORTANCE_HIGH).apply {
+                description = "Pops up when police, fire or ambulance equipment is detected nearby"
                 // Sound and vibration are played by the app so they follow the in-app settings.
                 setSound(null, null)
                 enableVibration(false)
@@ -64,7 +64,7 @@ class AlertNotifier(private val context: Context) {
         return NotificationCompat.Builder(context, CH_SCANNER)
             .setSmallIcon(R.drawable.ic_radar)
             .setContentTitle("Police Radar is scanning")
-            .setContentText("Listening for police Wi-Fi and Bluetooth signals")
+            .setContentText("Listening for police, fire and ambulance signals")
             .setOngoing(true)
             .setContentIntent(openAppIntent())
             .addAction(0, "Stop", stop)
@@ -73,16 +73,16 @@ class AlertNotifier(private val context: Context) {
 
     fun alert(obs: Observation, signature: Signature, settings: AppSettings) {
         val proximity = Proximity.fromRssi(obs.rssi)
-        val title = "${signature.confidence.label}: ${signature.label}"
+        val headline = alertHeadline(signature)
         val detail = buildString {
-            append(proximity.label).append(" · ").append(obs.source.label)
+            append(proximity.label).append(" · ").append(signature.label)
             obs.name?.let { append(" · \"").append(it).append('"') }
         }
 
         if (canNotify()) {
             val n = NotificationCompat.Builder(context, CH_ALERTS)
                 .setSmallIcon(R.drawable.ic_radar)
-                .setContentTitle("🚨 $title")
+                .setContentTitle("${signature.category.emoji} $headline")
                 .setContentText(detail)
                 .setStyle(NotificationCompat.BigTextStyle().bigText("$detail\n${signature.description}"))
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
@@ -100,7 +100,7 @@ class AlertNotifier(private val context: Context) {
         if (settings.vibrate) vibrate()
         if (settings.voice && ttsReady) {
             tts?.speak(
-                "${signature.confidence.label}. ${signature.label}, ${proximity.label.lowercase()}.",
+                "$headline, ${proximity.label.lowercase()}.",
                 TextToSpeech.QUEUE_FLUSH, null, "alert",
             )
         }
@@ -144,6 +144,13 @@ class AlertNotifier(private val context: Context) {
     )
 
     companion object {
+        /** "Police nearby", or "Possible ambulance nearby" for weaker matches. */
+        fun alertHeadline(signature: Signature): String {
+            val what = signature.category.label
+            return if (signature.confidence == com.policeradar.app.detect.Confidence.HIGH) "$what nearby"
+            else "Possible ${what.lowercase()} nearby"
+        }
+
         const val CH_ALERTS = "alerts"
         const val CH_SCANNER = "scanner"
     }

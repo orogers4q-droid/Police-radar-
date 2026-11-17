@@ -40,6 +40,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.policeradar.app.detect.Category
 import com.policeradar.app.detect.MatchType
 import com.policeradar.app.detect.Signature
 
@@ -48,7 +49,7 @@ import com.policeradar.app.detect.Signature
 fun SignaturesScreen(
     signatures: List<Signature>,
     onToggle: (id: String, enabled: Boolean) -> Unit,
-    onAdd: (label: String, type: MatchType, patterns: List<String>) -> Unit,
+    onAdd: (label: String, category: Category, type: MatchType, patterns: List<String>) -> Unit,
     onDelete: (id: String) -> Unit,
     onBack: () -> Unit,
 ) {
@@ -76,9 +77,9 @@ fun SignaturesScreen(
         ) {
             item {
                 Text(
-                    "Each entry describes radio signals that police equipment gives off. Turn off any that " +
-                        "give you false alarms, or add your own. The easiest way to add one is to tap a device " +
-                        "under \"Show all nearby signals\" on the main screen when you're next to a patrol car.",
+                    "Each entry describes radio signals that police, fire or ambulance equipment gives off. " +
+                        "Turn off any that give you false alarms, or add your own. The easiest way to add one is " +
+                        "to switch on learning mode in Settings, park next to an emergency vehicle and tap its device.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -87,7 +88,7 @@ fun SignaturesScreen(
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                     Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text(sig.label, fontWeight = FontWeight.SemiBold)
+                            Text("${sig.category.emoji} ${sig.label}", fontWeight = FontWeight.SemiBold)
                             Text(
                                 "${sig.matchType.label}: ${sig.patterns.joinToString(", ")}",
                                 fontSize = 13.sp,
@@ -111,8 +112,8 @@ fun SignaturesScreen(
     if (adding) {
         AddSignatureDialog(
             onDismiss = { adding = false },
-            onSave = { label, type, patterns ->
-                onAdd(label, type, patterns)
+            onSave = { label, category, type, patterns ->
+                onAdd(label, category, type, patterns)
                 adding = false
             },
         )
@@ -120,7 +121,8 @@ fun SignaturesScreen(
 }
 
 @Composable
-private fun AddSignatureDialog(onDismiss: () -> Unit, onSave: (String, MatchType, List<String>) -> Unit) {
+private fun AddSignatureDialog(onDismiss: () -> Unit, onSave: (String, Category, MatchType, List<String>) -> Unit) {
+    var category by remember { mutableStateOf(Category.POLICE) }
     var type by remember { mutableStateOf(MatchType.WIFI_NAME) }
     var patterns by remember { mutableStateOf("") }
     var label by remember { mutableStateOf("") }
@@ -131,6 +133,9 @@ private fun AddSignatureDialog(onDismiss: () -> Unit, onSave: (String, MatchType
         title = { Text("Add your own") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("Belongs to:")
+                CategoryPicker(category) { category = it }
+                Text("Match by:")
                 MatchType.entries.forEach { t ->
                     Row(
                         Modifier.fillMaxWidth().selectable(selected = type == t, onClick = { type = t }),
@@ -157,7 +162,7 @@ private fun AddSignatureDialog(onDismiss: () -> Unit, onSave: (String, MatchType
             }
         },
         confirmButton = {
-            TextButton(enabled = parsed.isNotEmpty(), onClick = { onSave(label, type, parsed) }) { Text("Save") }
+            TextButton(enabled = parsed.isNotEmpty(), onClick = { onSave(label, category, type, parsed) }) { Text("Save") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )

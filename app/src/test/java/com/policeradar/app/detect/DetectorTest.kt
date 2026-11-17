@@ -15,30 +15,63 @@ class DetectorTest {
         Observation(SignalSource.BLUETOOTH, mac, name, rssi, 0)
 
     private val sigs = BuiltInSignatures.all
+    private val plainMac = "10:20:30:40:50:60"
+
+    private fun categoryOf(obs: Observation) = Detector.match(sigs, obs)?.category
 
     @Test
-    fun axonPrefixMatchesOverBluetoothAndWifi_anyCaseOrSeparator() {
+    fun axonPrefixIsPolice_anyCaseOrSeparator() {
         assertEquals("axon_oui", Detector.match(sigs, ble("00:25:df:12:34:56"))?.id)
-        assertEquals("axon_oui", Detector.match(sigs, wifi("00-25-DF-AA-BB-CC"))?.id)
+        assertEquals(Category.POLICE, categoryOf(wifi("00-25-DF-AA-BB-CC")))
     }
 
     @Test
-    fun unrelatedDevicesDoNotMatch() {
-        assertNull(Detector.match(sigs, ble("A4:C1:38:12:34:56", "JBL Flip 5")))
-        assertNull(Detector.match(sigs, wifi("10:20:30:40:50:60", "Starbucks WiFi")))
+    fun everydayDevicesDoNotMatch() {
+        listOf("JBL Flip 5", "Starbucks WiFi", "NETGEAR42", "Fire TV Stick", "Firestick-4K", "Kindle Fire HD",
+            "Enginetics", "Ladderball", "Gems Cafe", "Medicine Shoppe", "xfinitywifi", "Patrolman's Pub",
+        ).forEach { name ->
+            assertNull("\"$name\" should not match", Detector.match(sigs, wifi(plainMac, name)))
+        }
+    }
+
+    @Test
+    fun policeWifiNames() {
+        listOf("PATROL-14", "Sheriff Unit 7", "unit12_police", "K9-UNIT", "Deputy 33").forEach {
+            assertEquals(it, Category.POLICE, categoryOf(wifi(plainMac, it)))
+        }
+    }
+
+    @Test
+    fun fireWifiNames() {
+        listOf("ENGINE 12", "ENGINE12", "Ladder-3", "VFD Rescue", "FireDept_Station2", "Battalion 1").forEach {
+            assertEquals(it, Category.FIRE, categoryOf(wifi(plainMac, it)))
+        }
+    }
+
+    @Test
+    fun ambulanceWifiNames() {
+        listOf("MEDIC 5", "MEDIC12", "Ambulance-22", "EMS_UNIT_4", "Paramedic3").forEach {
+            assertEquals(it, Category.EMS, categoryOf(wifi(plainMac, it)))
+        }
+    }
+
+    @Test
+    fun cradlepointIsGenericButSpecificNameWins() {
+        assertEquals(Category.RESPONDER, categoryOf(wifi("00:30:44:11:22:33", "IBR900-7d2")))
+        assertEquals(Category.RESPONDER, categoryOf(wifi(plainMac, "IBR1700-abc")))
+        // A Cradlepoint named "MEDIC 5" is an ambulance.
+        assertEquals(Category.EMS, categoryOf(wifi("00:30:44:11:22:33", "MEDIC 5")))
     }
 
     @Test
     fun wifiNameRulesOnlyApplyToWifi() {
-        assertEquals("police_keywords", Detector.match(sigs, wifi("10:20:30:40:50:60", "Unit12-POLICE"))?.id)
-        assertNull(Detector.match(sigs, ble("10:20:30:40:50:60", "Unit12-POLICE")))
-        assertEquals("cradlepoint_ssid", Detector.match(sigs, wifi("10:20:30:40:50:60", "IBR900-7d2"))?.id)
+        assertNull(Detector.match(sigs, ble(plainMac, "PATROL-14")))
     }
 
     @Test
     fun strongestConfidenceWins() {
-        // Axon MAC broadcasting a police-named network: HIGH beats MEDIUM.
-        assertEquals("axon_oui", Detector.match(sigs, wifi("00:25:DF:00:00:01", "patrol car 7"))?.id)
+        // Axon MAC (HIGH, police) beats a fire-named network (MEDIUM).
+        assertEquals("axon_oui", Detector.match(sigs, wifi("00:25:DF:00:00:01", "ENGINE 4"))?.id)
     }
 
     @Test
@@ -49,7 +82,7 @@ class DetectorTest {
 
     @Test
     fun customBleNameSignature() {
-        val custom = Signature("c", "Mine", "", MatchType.BLE_NAME, listOf("Signal Sidearm"), Confidence.HIGH)
+        val custom = Signature("c", "Mine", "", Category.FIRE, MatchType.BLE_NAME, listOf("Signal Sidearm"), Confidence.HIGH)
         assertTrue(Detector.matches(custom, ble("11:22:33:44:55:66", "Axon Signal Sidearm 2")))
         assertFalse(Detector.matches(custom, wifi("11:22:33:44:55:66", "Axon Signal Sidearm 2")))
     }
@@ -84,7 +117,7 @@ class DetectorTest {
         // Body camera in the same car, seconds later: silent, and won't alert later either.
         assertFalse(gate.shouldAlert("bodycam", 5_000))
         assertFalse(gate.shouldAlert("bodycam", 40_000))
-        // A different car well after the gap does alert.
+        // A different vehicle well after the gap does alert.
         assertTrue(gate.shouldAlert("other-car", 60_000))
     }
 }

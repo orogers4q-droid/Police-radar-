@@ -38,6 +38,11 @@ object DetectionRepository {
         _devices.update { map -> map.mapValues { (_, d) -> d.copy(signature = matcher(d.latest)) } }
     }
 
+    /** Forget ordinary devices (used when learning mode is switched off). */
+    fun dropUnmatched() {
+        _devices.update { map -> map.filterValues { it.signature != null } }
+    }
+
     fun pruneOlderThan(cutoffMs: Long) {
         _devices.update { map -> map.filterValues { it.latest.timeMs >= cutoffMs } }
     }

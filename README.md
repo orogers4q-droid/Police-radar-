@@ -1,39 +1,41 @@
 # Police Radar
 
-An Android app that listens for the radio signals police equipment gives off — in-car Wi-Fi routers, body cameras, Tasers — and **pings your phone when one gets close, telling you what it is.**
+An Android app that listens for the radio signals emergency-service equipment gives off — in-car Wi-Fi routers, body cameras, Tasers — and **pings your phone when police 🚓, fire 🚒 or an ambulance 🚑 gets close, telling you which.** Everyday Wi-Fi and Bluetooth devices are ignored.
 
 It only *listens*. It never connects to, transmits to, or interferes with anything.
 
 ## What it does
 
 - Scans **Wi-Fi** (every 30 seconds, the fastest Android allows) and **Bluetooth Low Energy** (continuously) in the background.
-- Compares every device it hears against a list of **signatures** — patterns that identify police gear.
+- Compares every device it hears against **signatures** — patterns that identify emergency-service gear — and ignores everything else.
 - When one matches and is within your alert range, you get:
-  - a pop-up notification, e.g. **"🚨 Likely police: Axon equipment — Close · Bluetooth"**
+  - a pop-up notification, e.g. **"🚓 Police nearby — Close · Axon body camera / Taser"** or **"🚑 Possible ambulance nearby"**
   - a short siren tone and vibration
-  - an optional spoken alert: *"Likely police. Axon equipment, close."*
-- Shows a live list of police signals in range with signal-strength bars and a rough distance (very close / close / nearby / far).
-- **Show all nearby signals** lists everything around you. Tap any device to **mark it as police** — useful when you're parked next to a patrol car and want to teach the app what your local department uses.
-- One patrol car carrying a router *and* body cameras pings once, not three times.
+  - an optional spoken alert: *"Police nearby, close."*
+- Choose which services alert you (police, fire, ambulance, unknown emergency vehicle) in Settings.
+- One vehicle carrying a router *and* body cameras pings once, not three times.
+- **Learning mode** (Settings) lists every nearby device so you can tap one and teach the app it belongs to police, fire or an ambulance — useful when parked next to one.
 
 ### Built-in signatures
 
-| Signature | How it's matched | Confidence |
-|---|---|---|
-| Axon equipment (body cams, Tasers, Axon Signal) | Hardware address starts with `00:25:DF` | Likely police |
-| Cradlepoint vehicle router | Hardware address starts with `00:30:44` | Possible police |
-| Cradlepoint router, default Wi-Fi name | Wi-Fi name contains `IBR900`, `IBR1700`, … | Possible police |
-| Police-named Wi-Fi | Wi-Fi name contains `police`, `sheriff`, `patrol`, `trooper` | Possible police |
+| Signature | Service | How it's matched | Confidence |
+|---|---|---|---|
+| Axon body camera / Taser | 🚓 Police | Hardware address starts with `00:25:DF` | Likely |
+| Police vehicle Wi-Fi | 🚓 Police | Wi-Fi name has a word like `police`, `sheriff`, `patrol`, `trooper`, `deputy`, `K9` | Possible |
+| Fire apparatus Wi-Fi | 🚒 Fire | Wi-Fi name has a word like `engine`, `ladder`, `battalion`, `VFD`, `fire dept` (ignores Fire TV / Firestick / Kindle Fire) | Possible |
+| Ambulance Wi-Fi | 🚑 Ambulance | Wi-Fi name has a word like `medic`, `ambulance`, `EMS`, `paramedic` | Possible |
+| Cradlepoint vehicle router | 🚨 Emergency vehicle | Hardware address starts with `00:30:44` | Possible |
+| Cradlepoint router, default name | 🚨 Emergency vehicle | Wi-Fi name contains `IBR900`, `IBR1700`, … | Possible |
 
-Each can be switched off, and you can add your own (**☰ What it looks for → +**).
+Name words must stand on their own: `ENGINE 12` or `ENGINE12` match, `Enginetics` doesn't. Each signature can be switched off, and you can add your own (**☰ What it looks for → +**).
 
 ### Honest limitations
 
-- **Matches are educated guesses.** Cradlepoint routers are also used by ambulances, fire trucks, buses and shops. Departments differ in what gear they use, and some gear is configured not to broadcast. Expect some false alarms and some misses — adding signatures for your local area improves it a lot.
+- **Matches are educated guesses.** Cradlepoint routers are shared by police, fire and EMS (and some buses and businesses), so they show as "Emergency vehicle". Departments name their Wi-Fi differently, and some gear doesn't broadcast at all. Expect some misses and false alarms — teaching the app your local departments' devices helps a lot.
 - **Android only.** iPhones don't let apps scan Wi-Fi or see Bluetooth hardware addresses, so this can't work on iOS.
 - **Keep the screen on.** Many phones pause Bluetooth scanning when the screen turns off, so the app keeps the screen awake while scanning. Mount your phone.
 - **Range** is roughly 50–150 m for Wi-Fi and 10–50 m for Bluetooth, depending on the gear and obstacles.
-- Laws on detection devices vary by place; check yours. Always drive safely and legally.
+- Laws on detection devices vary by place; check yours. Always drive safely and legally, and pull over for emergency vehicles.
 
 ## Open it in Android Studio
 
