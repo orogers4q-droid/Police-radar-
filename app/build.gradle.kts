@@ -16,6 +16,17 @@ android {
         versionName = "0.1.0"
     }
 
+    signingConfigs {
+        // Shared debug key, so every build (any computer, any session) can update the installed app.
+        // Debug keys are not secret; publishing to the Play Store needs a separate release key.
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
