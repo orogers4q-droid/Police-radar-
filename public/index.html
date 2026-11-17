@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f172a" />
+  <title>Patrol Alert</title>
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/vendor/leaflet/leaflet.css" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="dot" aria-hidden="true"></span> Patrol Alert</div>
+    <div id="status" class="status" role="status">Locating…</div>
+    <button id="settingsBtn" class="icon-btn" aria-label="Settings">⚙</button>
+  </header>
+
+  <div id="alert" class="alert hidden" role="alert" aria-live="assertive">
+    <div class="alert-title" id="alertTitle"></div>
+    <div class="alert-sub" id="alertSub"></div>
+    <button id="alertClose" class="alert-close" aria-label="Dismiss alert">✕</button>
+  </div>
+
+  <main id="map" aria-label="Map of police reports"></main>
+
+  <section class="panel">
+    <div id="nearest" class="nearest">No reports nearby.</div>
+    <div class="actions">
+      <button id="startBtn" class="btn secondary">Start driving mode</button>
+      <button id="reportBtn" class="btn primary">Report police</button>
+    </div>
+  </section>
+
+  <dialog id="reportDialog">
+    <form method="dialog" id="reportForm">
+      <h2>What do you see?</h2>
+      <p class="muted">Reported at your current location.</p>
+      <div class="types" id="typeGrid"></div>
+      <label class="field">
+        Note (optional)
+        <input id="noteInput" maxlength="140" placeholder="e.g. northbound, behind the billboard" />
+      </label>
+      <div class="dialog-actions">
+        <button value="cancel" class="btn secondary" formnovalidate>Cancel</button>
+        <button value="submit" class="btn primary" id="submitReport" disabled>Submit</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="settingsDialog">
+    <form method="dialog">
+      <h2>Settings</h2>
+      <label class="field">
+        Alert distance: <strong id="radiusLabel"></strong>
+        <input type="range" id="radiusInput" min="200" max="3000" step="100" />
+      </label>
+      <label class="check"><input type="checkbox" id="soundInput" /> Alert sound</label>
+      <label class="check"><input type="checkbox" id="vibrateInput" /> Vibrate</label>
+      <label class="check"><input type="checkbox" id="voiceInput" /> Spoken alerts</label>
+      <p class="muted small">Please don't interact with the app while driving. Reports are crowdsourced and may be inaccurate — always drive safely and obey the law.</p>
+      <div class="dialog-actions">
+        <button value="close" class="btn primary">Done</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast hidden" role="status"></div>
+
+  <script src="/vendor/leaflet/leaflet.js"></script>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

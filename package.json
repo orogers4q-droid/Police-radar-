@@ -1,0 +1,14 @@
+{
+  "name": "police-detection-app",
+  "version": "0.1.0",
+  "description": "Crowdsourced police sighting alerts for drivers: report, confirm and get warned as you approach.",
+  "type": "module",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": { "node": ">=20" },
+  "license": "MIT"
+}
