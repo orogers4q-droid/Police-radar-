@@ -76,3 +76,50 @@ app/src/test/              Unit tests for the detection logic
 ```
 
 Run the unit tests with `./gradlew test`.
+
+---
+
+# BLE Radar (second app, `bleradar/`)
+
+A separate app in the same project that hunts for **Bluetooth trackers 🏷️ and hidden cameras 📷**, and helps you **track them down** with beeps and vibration that speed up as you get closer. It installs next to Police Radar as its own app.
+
+## What it does
+
+- Scans **Bluetooth Low Energy** continuously and lists everything nearby on a live radar, most suspicious first.
+- **Trackers:** AirTags and other Apple Find My tags (flagged red when away from their owner, which is what Apple's own anti-stalking alerts look for), Tile, Samsung SmartTag, Chipolo and Google Find My Device tags.
+- **"Travelling with you" warning:** a tracker that stays in range for 10+ minutes is flagged.
+- **Possible hidden cameras:** Bluetooth devices named like cameras (`IPCAM`, `V380`, `LookCam`, `HDWiFiCam`, `spy cam`, …), plus the **Wi-Fi hotspots** cheap spy cameras create while waiting to be set up (`V380-…`, `GW_AP_…`, `HDWiFiCam…`). Other Wi-Fi networks are ignored.
+- **Chime and buzz** when a new tracker or possible camera first shows up.
+- **Track it down:** tap any device to open a big closeness dial:
+  - beeps get **faster and higher-pitched** as you get closer, like a Geiger counter, down to a rapid buzz when you're on top of it
+  - **vibration pulses** speed up and get stronger in step with the beeps (works with the sound off too)
+  - **▲ Getting closer / ▼ Moving away** indicator, rough distance in metres, and a mark for the strongest reading so far
+  - beeps use media volume, so they still work with the ringer on silent
+- **Lens finder 🔦:** many hidden cameras don't use Bluetooth at all. This turns on the flashlight and darkens the camera view so a lens shows up as a sharp sparkle. **Infrared check** uses the front camera, which can usually see a night-vision camera's invisible IR LEDs as a purple glow.
+
+### Honest limitations
+
+- Bluetooth can tell **how close**, not **which direction**. To get a direction, hold the phone against your chest and turn slowly: your body blocks the signal, so it's strongest when you face the device. Where a dot sits around the radar circle means nothing; how far it is from the centre does.
+- Signal strength jumps around, so the app smooths it; move slowly and pause between steps.
+- Trackers change their Bluetooth address now and then (AirTags away from their owner about once a day). If one disappears while you're tracking it, go back and pick the newest tracker.
+- Many hidden cameras use only Wi-Fi once set up, or record to a memory card with no radio at all. A clean scan doesn't prove a room is clean: also use the Lens finder and check smoke alarms, clocks, chargers and anything pointing at the bed or shower.
+- Camera detection by name is a guess and will have false alarms (a dash cam or doorbell counts as a camera).
+- It scans while the app is open (the screen is kept on). Android only.
+
+## Put BLE Radar on your phone
+
+Same as Police Radar above, but in Android Studio pick **bleradar** in the run-configuration drop-down (next to the device picker) before pressing **▶ Run**. Allow **Location** and **Nearby devices**; the Lens finder asks for the **Camera** when you first open it.
+
+```
+bleradar/src/main/java/com/bleradar/app/
+  MainActivity.kt          Permissions, screen switching
+  Prefs.kt                 Saved settings (sound, vibration, alerts, show all)
+  detect/Classifier.kt     What a device is: tracker, camera or other (pure Kotlin)
+  detect/Signal.kt         Smoothing, closer/further trend, distance, beep rate and pitch
+  scan/Scanner.kt          Bluetooth + camera-hotspot Wi-Fi scanning
+  scan/Feedback.kt         Geiger-style beeps and vibration, new-find chime
+  ui/                      Radar + list, tracking dial, lens finder
+bleradar/src/test/         Unit tests
+```
+
+Run its tests with `./gradlew :bleradar:test`.

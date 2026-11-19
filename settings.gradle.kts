@@ -14,3 +14,4 @@ dependencyResolutionManagement {
 }
 rootProject.name = "PoliceRadar"
 include(":app")
+include(":bleradar")

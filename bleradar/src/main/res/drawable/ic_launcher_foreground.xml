@@ -1,0 +1,12 @@
+<!-- Radar rings with a sweep line and a blip. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#00000000" android:strokeColor="#FF22D3EE" android:strokeWidth="3"
+        android:pathData="M54,28a26,26 0,1 1,0 52a26,26 0,1 1,0 -52z" />
+    <path android:fillColor="#00000000" android:strokeColor="#8022D3EE" android:strokeWidth="2.5"
+        android:pathData="M54,41a13,13 0,1 1,0 26a13,13 0,1 1,0 -26z" />
+    <path android:fillColor="#00000000" android:strokeColor="#FF22D3EE" android:strokeWidth="3"
+        android:strokeLineCap="round" android:pathData="M54,54L72,36" />
+    <path android:fillColor="#FFF59E0B" android:pathData="M66,58a4,4 0,1 1,0 8a4,4 0,1 1,0 -8z" />
+</vector>
