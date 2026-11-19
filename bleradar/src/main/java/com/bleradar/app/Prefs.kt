@@ -13,6 +13,8 @@ data class Settings(
     val alerts: Boolean = true,
     /** List every Bluetooth device, not just trackers and possible cameras. */
     val showAll: Boolean = true,
+    /** When tracking, connect to the device to read its signal ~6 times a second. */
+    val fastMode: Boolean = false,
 )
 
 /** Saved settings, shared by the screens and the scanner. */
@@ -30,6 +32,7 @@ object Prefs {
             .putBoolean("vibrate", s.vibrate)
             .putBoolean("alerts", s.alerts)
             .putBoolean("showAll", s.showAll)
+            .putBoolean("fastMode", s.fastMode)
             .apply()
         f.value = s
     }
@@ -45,6 +48,7 @@ object Prefs {
                         vibrate = p.getBoolean("vibrate", d.vibrate),
                         alerts = p.getBoolean("alerts", d.alerts),
                         showAll = p.getBoolean("showAll", d.showAll),
+                        fastMode = p.getBoolean("fastMode", d.fastMode),
                     ),
                 ).also { state = it }
             }

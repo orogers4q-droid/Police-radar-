@@ -7,6 +7,8 @@
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+    <!-- Fast mode only: connects to the device being tracked to read its signal several times a second. -->
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <!-- Wi-Fi is only used to spot the hotspots that cheap hidden cameras create. -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />

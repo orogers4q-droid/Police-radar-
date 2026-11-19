@@ -62,15 +62,17 @@ enum class Trend(val label: String, val arrow: String) {
 
 /**
  * Smooths the jumpy signal strength of one device. Bluetooth readings jump by ±10 dB from
- * moment to moment, so a median of recent readings is fed into a moving average.
+ * moment to moment, so a median of the last [windowMs] of readings is fed into a moving average.
+ * Both are time-based: a device heard 10 times a second is smoothed hard, while one heard every
+ * 2 seconds (like an AirTag) follows each new reading almost at once instead of lagging behind.
  */
 class SignalTracker(
-    private val alpha: Double = 0.35,
-    private val windowSize: Int = 5,
+    private val tauMs: Double = 700.0,
+    private val windowMs: Long = 1500,
     private val trendWindowMs: Long = 3000,
     private val trendThresholdDb: Double = 2.5,
 ) {
-    private val recent = ArrayDeque<Int>()
+    private val recent = ArrayDeque<Pair<Long, Int>>()
     private val history = ArrayDeque<Pair<Long, Double>>()
 
     var smoothed: Double? = null
@@ -83,10 +85,18 @@ class SignalTracker(
         private set
 
     fun add(rssi: Int, timeMs: Long) {
-        recent.addLast(rssi)
-        while (recent.size > windowSize) recent.removeFirst()
-        val median = recent.sorted()[recent.size / 2].toDouble()
-        val s = smoothed?.let { it + alpha * (median - it) } ?: median
+        recent.addLast(timeMs to rssi)
+        while (recent.size > 1 && (recent.first().first < timeMs - windowMs || recent.size > 9)) recent.removeFirst()
+        val sorted = recent.map { it.second }.sorted()
+        val median = sorted[sorted.size / 2].toDouble()
+        val prev = smoothed
+        val s = if (prev == null || samples == 0) {
+            median
+        } else {
+            val dt = (timeMs - lastSeenMs).coerceAtLeast(1).toDouble()
+            val alpha = 1 - kotlin.math.exp(-dt / tauMs)
+            prev + alpha * (median - prev)
+        }
         smoothed = s
         peak = maxOf(peak ?: s, s)
         lastSeenMs = timeMs
@@ -94,6 +104,10 @@ class SignalTracker(
         history.addLast(timeMs to s)
         while (history.size > 2 && history.first().first < timeMs - trendWindowMs * 3) history.removeFirst()
     }
+
+    /** Readings per second over the last few seconds. */
+    fun ratePerSecond(nowMs: Long, overMs: Long = 4000): Double =
+        history.count { it.first > nowMs - overMs } * 1000.0 / overMs
 
     /** Compares now with about [trendWindowMs] ago. */
     fun trend(): Trend {

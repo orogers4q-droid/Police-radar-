@@ -50,6 +50,8 @@ object Scanner {
     private const val TAG = "Scanner"
     private const val PUBLISH_MS = 500L
     private const val WIFI_INTERVAL_MS = 30_000L
+    /** While tracking a camera hotspot. Only works fully with Wi-Fi scan throttling turned off. */
+    private const val WIFI_FAST_INTERVAL_MS = 5_000L
     private const val BLE_RESTART_MS = 10 * 60_000L
     private const val BLE_TIMEOUT_MS = 2 * 60_000L
     private const val WIFI_TIMEOUT_MS = 150_000L
@@ -76,6 +78,23 @@ object Scanner {
     private val _problem = MutableStateFlow<String?>(null)
     val problem: StateFlow<String?> = _problem.asStateFlow()
 
+    /** True when Android refused a Wi-Fi scan because of its 4-scans-per-2-minutes limit. */
+    private val _wifiThrottled = MutableStateFlow(false)
+    val wifiThrottled: StateFlow<Boolean> = _wifiThrottled.asStateFlow()
+
+    private var fastWifi = false
+    private val lastWifiStamp = HashMap<String, Long>()
+
+    /** Scan Wi-Fi as often as Android allows, for tracking down a camera hotspot. */
+    fun setFastWifi(on: Boolean) {
+        if (fastWifi == on) return
+        fastWifi = on
+        if (_scanning.value) {
+            handler.removeCallbacks(wifiTick)
+            handler.post(wifiTick)
+        }
+    }
+
     /** Every raw sighting, unthrottled, for tracking one device down. */
     private val _sightings = MutableSharedFlow<Sighting>(extraBufferCapacity = 256, onBufferOverflow = BufferOverflow.DROP_OLDEST)
     val sightings: SharedFlow<Sighting> = _sightings.asSharedFlow()
@@ -94,6 +113,8 @@ object Scanner {
     fun stop() {
         if (!_scanning.value) return
         _scanning.value = false
+        fastWifi = false
+        _wifiThrottled.value = false
         handler.removeCallbacks(publishTick)
         handler.removeCallbacks(bleRestart)
         handler.removeCallbacks(wifiTick)
@@ -101,6 +122,7 @@ object Scanner {
         if (receiverRegistered) app.unregisterReceiver(wifiReceiver)
         receiverRegistered = false
         working.clear()
+        lastWifiStamp.clear()
         alerted.clear()
         _devices.value = emptyMap()
     }
@@ -163,11 +185,17 @@ object Scanner {
             return
         }
         bleScanner = adapter.bluetoothLeScanner
-        val settings = ScanSettings.Builder()
+        val builder = ScanSettings.Builder()
             .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
             .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
+            .setMatchMode(ScanSettings.MATCH_MODE_AGGRESSIVE)
             .setReportDelay(0)
-            .build()
+        // Also hear newer "extended" and long-range broadcasts, where the phone supports them.
+        if (adapter.isLeExtendedAdvertisingSupported) {
+            builder.setLegacy(false)
+            builder.setPhy(ScanSettings.PHY_LE_ALL_SUPPORTED)
+        }
+        val settings = builder.build()
         try {
             bleScanner?.startScan(null, settings, bleCallback)
         } catch (e: SecurityException) {
@@ -214,12 +242,13 @@ object Scanner {
         override fun run() {
             try {
                 @Suppress("DEPRECATION")
-                wifi?.startScan()
+                val accepted = wifi?.startScan() ?: true
+                _wifiThrottled.value = !accepted
             } catch (e: SecurityException) {
                 Log.w(TAG, "Wi-Fi scan not allowed", e)
             }
             readWifi()
-            handler.postDelayed(this, WIFI_INTERVAL_MS)
+            handler.postDelayed(this, if (fastWifi) WIFI_FAST_INTERVAL_MS else WIFI_INTERVAL_MS)
         }
     }
 
@@ -242,7 +271,10 @@ object Scanner {
             val bssid = r.BSSID ?: continue
             @Suppress("DEPRECATION")
             val ssid = r.SSID?.takeIf { it.isNotBlank() && it != "<unknown ssid>" } ?: continue
-            val s = Sighting(Source.WIFI, bssid, ssid, r.level, nowMs)
+            // The same cached result comes back until a new scan finishes; count each reading once.
+            if (lastWifiStamp.put(bssid, r.timestamp) == r.timestamp) continue
+            val heardMs = nowMs - (nowMicros - r.timestamp) / 1000
+            val s = Sighting(Source.WIFI, bssid, ssid, r.level, heardMs)
             // Only camera hotspots: this is a Bluetooth radar, not a Wi-Fi list.
             if (Classifier.classify(s).kind.group == Group.CAMERA) handle(s)
         }

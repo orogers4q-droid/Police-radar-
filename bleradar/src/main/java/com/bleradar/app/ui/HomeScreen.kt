@@ -390,7 +390,7 @@ private fun HowItWorks() {
             Text("📷 Possible hidden cameras: Bluetooth devices named like cameras, and the Wi-Fi hotspots cheap spy cameras create.")
             Text("Tap any device to track it down: the phone beeps and buzzes faster, and the beep gets higher, as you get closer.")
             Text(
-                "It only listens; it never connects to anything. Matches are educated guesses: many cameras use only Wi-Fi " +
+                "It only listens, unless you turn on ⚡ Fast mode while tracking, which connects to that one device. Matches are educated guesses: many cameras use only Wi-Fi " +
                     "or nothing at all, so also use the Lens finder.",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodySmall,

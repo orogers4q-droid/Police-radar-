@@ -95,12 +95,16 @@ A separate app in the same project that hunts for **Bluetooth trackers 🏷️ a
   - **vibration pulses** speed up and get stronger in step with the beeps (works with the sound off too)
   - **▲ Getting closer / ▼ Moving away** indicator, rough distance in metres, and a mark for the strongest reading so far
   - beeps use media volume, so they still work with the ringer on silent
+  - shows how many **readings per second** it's getting
+  - **⚡ Fast mode** (optional): connects to the device and reads its signal about 6 times a second, instead of waiting for its broadcasts (many trackers only broadcast every 1–2 seconds). Works only with devices that accept connections; others stay on broadcasts. Needs the Nearby devices permission.
+  - tracking a **camera Wi-Fi hotspot** asks for a Wi-Fi scan every 5 seconds. Android normally limits apps to 4 scans per 2 minutes; turn off **Developer options → Wi-Fi scan throttling** to get the faster updates.
 - **Lens finder 🔦:** many hidden cameras don't use Bluetooth at all. This turns on the flashlight and darkens the camera view so a lens shows up as a sharp sparkle. **Infrared check** uses the front camera, which can usually see a night-vision camera's invisible IR LEDs as a purple glow.
 
 ### Honest limitations
 
 - Bluetooth can tell **how close**, not **which direction**. To get a direction, hold the phone against your chest and turn slowly: your body blocks the signal, so it's strongest when you face the device. Where a dot sits around the radar circle means nothing; how far it is from the centre does.
-- Signal strength jumps around, so the app smooths it; move slowly and pause between steps.
+- Signal strength jumps around, so the app smooths it; move slowly and pause between steps. Smoothing adapts to how often the device is heard, so slow broadcasters don't lag behind.
+- How often a device broadcasts is set by the device, not the phone. Fast mode gets around that only for devices that accept connections; while connected, some devices stop broadcasting and their owner's app may show them as connected.
 - Trackers change their Bluetooth address now and then (AirTags away from their owner about once a day). If one disappears while you're tracking it, go back and pick the newest tracker.
 - Many hidden cameras use only Wi-Fi once set up, or record to a memory card with no radio at all. A clean scan doesn't prove a room is clean: also use the Lens finder and check smoke alarms, clocks, chargers and anything pointing at the bed or shower.
 - Camera detection by name is a guess and will have false alarms (a dash cam or doorbell counts as a camera).

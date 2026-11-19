@@ -140,10 +140,26 @@ class SignalTest {
         repeat(20) { t.add(-85, time); time += 200 }
         repeat(8) { t.add(-60, time); time += 200 }
         assertEquals(Trend.WARMER, t.trend())
-        repeat(8) { t.add(-90, time); time += 200 }
+        repeat(16) { t.add(-90, time); time += 200 }
         assertEquals(Trend.COLDER, t.trend())
         repeat(40) { t.add(-90, time); time += 200 }
         assertEquals(Trend.STEADY, t.trend())
+    }
+
+    @Test
+    fun sparseReadingsAreFollowedQuickly() {
+        // A tracker heard every 2 seconds shouldn't take ages to catch up.
+        val t = SignalTracker()
+        t.add(-90, 0)
+        t.add(-60, 2000)
+        assertTrue(t.smoothed!! > -62)
+    }
+
+    @Test
+    fun readingRate() {
+        val t = SignalTracker()
+        for (i in 0 until 24) t.add(-60, i * 167L)
+        assertEquals(6.0, t.ratePerSecond(4000), 0.6)
     }
 
     @Test
