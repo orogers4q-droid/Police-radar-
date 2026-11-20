@@ -21,6 +21,8 @@ import com.bleradar.app.Prefs
 import com.bleradar.app.detect.Classification
 import com.bleradar.app.detect.Classifier
 import com.bleradar.app.detect.Group
+import com.bleradar.app.detect.Identifier
+import com.bleradar.app.detect.Identity
 import com.bleradar.app.detect.Sighting
 import com.bleradar.app.detect.Source
 import com.bleradar.app.detect.Threat
@@ -38,8 +40,25 @@ data class Tracked(
     val classification: Classification,
     val firstSeenMs: Long,
     val sightings: Int,
+    /** What it most likely is ("AirPods Pro", "Keyboard, mouse or remote"…). */
+    val identity: Identity,
+    /** Last name it broadcast: many devices only send their name in some broadcasts. */
+    val knownName: String?,
+    /** Name, maker and model the device reported itself when connected to (Fast mode). */
+    val deviceInfo: DeviceInfo? = null,
 ) {
     val key: String get() = latest.key
+
+    /** Best name to show: its own name, or else what it is. */
+    val title: String get() = knownName ?: deviceInfo?.name ?: identity.what
+}
+
+/** What a device says about itself when asked over a connection. */
+data class DeviceInfo(val name: String?, val manufacturer: String?, val model: String?) {
+    val isEmpty: Boolean get() = name == null && manufacturer == null && model == null
+
+    /** "Bose · QC45" */
+    val summary: String get() = listOfNotNull(name, manufacturer, model).distinct().joinToString(" · ")
 }
 
 /**
@@ -93,6 +112,21 @@ object Scanner {
             handler.removeCallbacks(wifiTick)
             handler.post(wifiTick)
         }
+    }
+
+    /** Each device the first time it's heard this session, for the "new device" pop-up. */
+    private val _newDevices = MutableSharedFlow<Tracked>(extraBufferCapacity = 64, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+    val newDevices: SharedFlow<Tracked> = _newDevices.asSharedFlow()
+
+    /** What devices said about themselves when connected to, by address. Kept for the session. */
+    private val deviceInfos = HashMap<String, DeviceInfo>()
+
+    fun rememberDeviceInfo(address: String, info: DeviceInfo) {
+        if (info.isEmpty) return
+        val a = address.uppercase()
+        deviceInfos[a] = info
+        for ((k, t) in working) if (t.latest.address.uppercase() == a) working[k] = t.copy(deviceInfo = info)
+        dirty = true
     }
 
     /** Every raw sighting, unthrottled, for tracking one device down. */
@@ -288,9 +322,22 @@ object Scanner {
         val prev = working[s.key]
         // A device can send several kinds of advertisement; remember the most suspicious.
         val keep = if (prev != null && prev.classification.kind.threat.ordinal <= c.kind.threat.ordinal) prev.classification else c
-        val t = Tracked(s, keep, prev?.firstSeenMs ?: s.timeMs, (prev?.sightings ?: 0) + 1)
+        val id = Identifier.identify(s, keep.kind)
+        // Keep the most informative guess (an iPhone alternates between several broadcast kinds).
+        val identity = if (prev != null && prev.identity.specificity > id.specificity && prev.classification == keep) prev.identity else id
+        val t = Tracked(
+            latest = s,
+            classification = keep,
+            firstSeenMs = prev?.firstSeenMs ?: s.timeMs,
+            sightings = (prev?.sightings ?: 0) + 1,
+            identity = identity,
+            knownName = s.name ?: prev?.knownName,
+            deviceInfo = deviceInfos[s.address.uppercase()],
+        )
         working[s.key] = t
         dirty = true
+        // Wait a moment before announcing it: the name often comes in a later broadcast.
+        if (prev == null) handler.postDelayed({ working[s.key]?.let { _newDevices.tryEmit(it) } }, 1500)
         maybeAlert(t)
     }
 

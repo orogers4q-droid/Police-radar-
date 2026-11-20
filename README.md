@@ -90,6 +90,10 @@ A separate app in the same project that hunts for **Bluetooth trackers 🏷️ a
 - **"Travelling with you" warning:** a tracker that stays in range for 10+ minutes is flagged.
 - **Possible hidden cameras:** Bluetooth devices named like cameras (`IPCAM`, `V380`, `LookCam`, `HDWiFiCam`, `spy cam`, …), plus the **Wi-Fi hotspots** cheap spy cameras create while waiting to be set up (`V380-…`, `GW_AP_…`, `HDWiFiCam…`). Other Wi-Fi networks are ignored.
 - **Chime and buzz** when a new tracker or possible camera first shows up.
+- **Says what each device is**, even when it has no name: e.g. "AirPods Pro", "iPhone, iPad, Mac or Apple Watch", "Keyboard, mouse or remote", "Samsung phone, watch, earbuds or TV", "Car", "Smart light". It works this out from the maker code, Apple's broadcast type (which even gives the AirPods/Beats model), standard service IDs and words in the name.
+- **Pop-ups:** each newly found device slides in at the top of the screen with its name, what it is and how close it is. When lots appear at once it shows the most interesting one "and N more". Choose every device, only trackers and cameras, or off in Settings.
+- **Tap a dot on the radar** (or a device in the list) to pop up everything known about it. Trackers, cameras and the closest few devices are labelled on the radar.
+- In **Fast mode**, the app also asks the connected device for its own name, maker and model, and pops up what it says.
 - **Track it down:** tap any device to open a big closeness dial:
   - beeps get **faster and higher-pitched** as you get closer, like a Geiger counter, down to a rapid buzz when you're on top of it
   - **vibration pulses** speed up and get stronger in step with the beeps (works with the sound off too)

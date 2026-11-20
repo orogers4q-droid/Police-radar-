@@ -5,6 +5,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
+/** Which newly found devices pop up on screen. */
+enum class PopupMode(val label: String) {
+    ALL("Every new device"),
+    SUSPICIOUS("Only trackers and cameras"),
+    OFF("Off"),
+}
+
 data class Settings(
     /** Beep when tracking, and chime when a new tracker or camera shows up. */
     val sound: Boolean = true,
@@ -15,6 +22,8 @@ data class Settings(
     val showAll: Boolean = true,
     /** When tracking, connect to the device to read its signal ~6 times a second. */
     val fastMode: Boolean = false,
+    /** Pop up the name / type of each newly found device. */
+    val popups: PopupMode = PopupMode.ALL,
 )
 
 /** Saved settings, shared by the screens and the scanner. */
@@ -33,6 +42,7 @@ object Prefs {
             .putBoolean("alerts", s.alerts)
             .putBoolean("showAll", s.showAll)
             .putBoolean("fastMode", s.fastMode)
+            .putString("popups", s.popups.name)
             .apply()
         f.value = s
     }
@@ -49,6 +59,7 @@ object Prefs {
                         alerts = p.getBoolean("alerts", d.alerts),
                         showAll = p.getBoolean("showAll", d.showAll),
                         fastMode = p.getBoolean("fastMode", d.fastMode),
+                        popups = runCatching { PopupMode.valueOf(p.getString("popups", null)!!) }.getOrDefault(d.popups),
                     ),
                 ).also { state = it }
             }

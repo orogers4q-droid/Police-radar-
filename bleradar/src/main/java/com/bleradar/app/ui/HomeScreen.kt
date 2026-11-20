@@ -8,7 +8,16 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.material3.RadioButton
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -57,6 +66,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bleradar.app.PopupMode
 import com.bleradar.app.Settings
 import com.bleradar.app.detect.Group
 import com.bleradar.app.detect.Proximity
@@ -94,6 +104,8 @@ fun HomeScreen(
 ) {
     val now by produceNow()
     var showSettings by remember { mutableStateOf(false) }
+    var detailsKey by remember { mutableStateOf<String?>(null) }
+    val popup = rememberNewDevicePopup(settings.popups)
 
     val order = compareBy<Tracked> { it.classification.kind.threat.ordinal }.thenByDescending { it.latest.rssi }
     val cameras = devices.filter { it.classification.kind.group == Group.CAMERA }.sortedWith(order)
@@ -112,11 +124,12 @@ fun HomeScreen(
             )
         },
     ) { padding ->
+      Box(Modifier.fillMaxSize().padding(padding)) {
         LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
+            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            item { StatusCard(scanning, devices, cameras.size, trackers.size, onStart, onStop) }
+            item { StatusCard(scanning, devices, cameras.size, trackers.size, onStart, onStop) { detailsKey = it.key } }
 
             items(issues, key = { it.name }) { issue -> IssueCard(issue.message, issue.action) { onFixIssue(issue) } }
             if (problem != null && scanning) item { IssueCard(problem, null) {} }
@@ -125,12 +138,12 @@ fun HomeScreen(
 
             if (scanning) {
                 if (cameras.isNotEmpty()) {
-                    item { SectionTitle("📷 Possible hidden cameras", "Tap one to track it down.") }
-                    items(cameras, key = { it.key }) { d -> DeviceCard(d, now) { onTrack(d) } }
+                    item { SectionTitle("📷 Possible hidden cameras", "Tap one for details, or Track to find it.") }
+                    items(cameras, key = { it.key }) { d -> DeviceCard(d, now, { detailsKey = d.key }) { onTrack(d) } }
                 }
                 if (trackers.isNotEmpty()) {
-                    item { SectionTitle("🏷️ Trackers", "Tap one to track it down.") }
-                    items(trackers, key = { it.key }) { d -> DeviceCard(d, now) { onTrack(d) } }
+                    item { SectionTitle("🏷️ Trackers", "Tap one for details, or Track to find it.") }
+                    items(trackers, key = { it.key }) { d -> DeviceCard(d, now, { detailsKey = d.key }) { onTrack(d) } }
                 }
                 if (cameras.isEmpty() && trackers.isEmpty()) {
                     item {
@@ -142,17 +155,32 @@ fun HomeScreen(
                     }
                 }
                 if (settings.showAll && others.isNotEmpty()) {
-                    item { SectionTitle("🔵 Other Bluetooth devices (${others.size})", "Anything else nearby. Tap one to track it.") }
-                    items(others, key = { it.key }) { d -> DeviceCard(d, now) { onTrack(d) } }
+                    item { SectionTitle("🔵 Other Bluetooth devices (${others.size})", "Anything else nearby. Tap one to see what it is.") }
+                    items(others, key = { it.key }) { d -> DeviceCard(d, now, { detailsKey = d.key }) { onTrack(d) } }
                 }
             } else {
                 item { HowItWorks() }
             }
             item { Spacer(Modifier.height(24.dp)) }
         }
+        NewDevicePopup(popup, now, Modifier.align(Alignment.TopCenter).padding(horizontal = 12.dp, vertical = 6.dp)) {
+            detailsKey = it.key
+        }
+      }
     }
 
     if (showSettings) SettingsDialog(settings, onSettings) { showSettings = false }
+    detailsKey?.let { key ->
+        val d = devices.firstOrNull { it.key == key }
+        if (d == null) {
+            detailsKey = null
+        } else {
+            DeviceDetailsDialog(d, now, onDismiss = { detailsKey = null }) {
+                detailsKey = null
+                onTrack(d)
+            }
+        }
+    }
 }
 
 @Composable
@@ -163,6 +191,7 @@ private fun StatusCard(
     trackers: Int,
     onStart: () -> Unit,
     onStop: () -> Unit,
+    onBlipTap: (Tracked) -> Unit,
 ) {
     val alert = scanning && (cameras + trackers) > 0
     Card(
@@ -172,7 +201,14 @@ private fun StatusCard(
         modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
     ) {
         Column(Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            RadarScope(scanning, devices, Modifier.fillMaxWidth(0.8f).aspectRatio(1f))
+            RadarScope(scanning, devices, Modifier.fillMaxWidth(0.8f).aspectRatio(1f), onBlipTap)
+            if (scanning && devices.isNotEmpty()) {
+                Text(
+                    "Tap a dot to see what it is",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             Spacer(Modifier.height(12.dp))
             Text(
                 when {
@@ -210,8 +246,25 @@ private fun StatusCard(
  * Radar picture: closer signals sit nearer the centre. Bluetooth can't tell direction,
  * so a blip's position around the circle is fixed per device but means nothing.
  */
+/** Where a device's dot sits on a radar of radius [r] around [c]. */
+private fun blipPosition(d: Tracked, c: Offset, r: Float): Offset {
+    val dist = 1f - Signal.closeness(d.latest.rssi.toDouble())
+    val a = ((d.key.hashCode() and 0x7fffffff) % 360) * (Math.PI / 180)
+    return Offset(c.x + (r * 0.92f * dist * cos(a)).toFloat(), c.y + (r * 0.92f * dist * sin(a)).toFloat())
+}
+
 @Composable
-private fun RadarScope(scanning: Boolean, devices: List<Tracked>, modifier: Modifier) {
+private fun RadarScope(scanning: Boolean, devices: List<Tracked>, modifier: Modifier, onBlipTap: (Tracked) -> Unit) {
+    val measurer = rememberTextMeasurer()
+    val current by rememberUpdatedState(devices)
+    val tapModifier = Modifier.pointerInput(Unit) {
+        detectTapGestures { tap ->
+            val c = Offset(size.width / 2f, size.height / 2f)
+            val r = minOf(size.width, size.height) / 2f
+            val nearest = current.minByOrNull { (blipPosition(it, c, r) - tap).getDistance() }
+            if (nearest != null && (blipPosition(nearest, c, r) - tap).getDistance() < 28.dp.toPx()) onBlipTap(nearest)
+        }
+    }
     val transition = rememberInfiniteTransition(label = "sweep")
     val angle by transition.animateFloat(
         0f, 360f, infiniteRepeatable(tween(3000, easing = LinearEasing)), label = "angle",
@@ -219,7 +272,7 @@ private fun RadarScope(scanning: Boolean, devices: List<Tracked>, modifier: Modi
     val blink by transition.animateFloat(
         0.4f, 1f, infiniteRepeatable(tween(500), RepeatMode.Reverse), label = "blink",
     )
-    Canvas(modifier) {
+    Canvas(modifier.then(tapModifier)) {
         val r = size.minDimension / 2
         val c = center
         drawCircle(Color(0xFF0B1220), r, c)
@@ -237,16 +290,28 @@ private fun RadarScope(scanning: Boolean, devices: List<Tracked>, modifier: Modi
                 )
                 drawLine(RadarCyan, c, Offset(c.x + r, c.y), strokeWidth = 2.dp.toPx())
             }
+            // Label trackers and cameras, plus the few strongest others if there's room.
+            val labelled = devices.filter { it.classification.kind.threat.let { t -> t == Threat.HIGH || t == Threat.MEDIUM } }
+                .plus(devices.filter { it.classification.kind.threat == Threat.NONE }.sortedByDescending { it.latest.rssi }.take(3))
+                .map { it.key }.toSet()
             for (d in devices) {
                 val threat = d.classification.kind.threat
-                val dist = 1f - Signal.closeness(d.latest.rssi.toDouble())
-                val a = ((d.key.hashCode() and 0x7fffffff) % 360) * (Math.PI / 180)
-                val p = Offset(c.x + (r * 0.92f * dist * cos(a)).toFloat(), c.y + (r * 0.92f * dist * sin(a)).toFloat())
+                val p = blipPosition(d, c, r)
                 val important = threat == Threat.HIGH || threat == Threat.MEDIUM
                 drawCircle(
                     threatColor(threat).copy(alpha = if (important) blink else 0.6f),
                     (if (important) 6f else 3.5f).dp.toPx(), p,
                 )
+                if (d.key in labelled) {
+                    val label = d.title.let { if (it.length > 16) it.take(15) + "…" else it }
+                    val layout = measurer.measure(
+                        label,
+                        TextStyle(color = threatColor(threat).copy(alpha = if (important) 1f else 0.8f), fontSize = 10.sp),
+                    )
+                    val x = (p.x - layout.size.width / 2f).coerceIn(0f, size.width - layout.size.width)
+                    val y = (p.y + 7.dp.toPx()).coerceAtMost(size.height - layout.size.height)
+                    drawText(layout, topLeft = Offset(x, y))
+                }
             }
         }
         drawCircle(RadarCyan, 4.dp.toPx(), c)
@@ -254,7 +319,7 @@ private fun RadarScope(scanning: Boolean, devices: List<Tracked>, modifier: Modi
 }
 
 @Composable
-private fun DeviceCard(d: Tracked, now: Long, onClick: () -> Unit) {
+private fun DeviceCard(d: Tracked, now: Long, onClick: () -> Unit, onTrack: () -> Unit) {
     val s = d.latest
     val kind = d.classification.kind
     val accent = threatColor(kind.threat)
@@ -265,13 +330,20 @@ private fun DeviceCard(d: Tracked, now: Long, onClick: () -> Unit) {
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
     ) {
         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(if (s.source == Source.WIFI) "📶" else kind.emoji, fontSize = 26.sp)
+            Text(if (s.source == Source.WIFI) "📶" else d.identity.emoji, fontSize = 26.sp)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 if (kind.threat != Threat.NONE) {
                     Text(kind.label.uppercase(), color = accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
-                Text(s.name ?: "Unnamed device", fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
+                Text(d.title, fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
+                val what = if (d.title == d.identity.what) d.identity.maker else d.identity.line
+                if (what != null && kind.group == Group.OTHER) {
+                    Text(what, style = MaterialTheme.typography.bodyMedium, color = RadarCyan)
+                }
+                d.deviceInfo?.let { info ->
+                    Text("Says it's: ${info.summary}", style = MaterialTheme.typography.bodySmall, color = SafeGreen)
+                }
                 Text(
                     "${s.source.label} · ${s.address.uppercase()}",
                     style = MaterialTheme.typography.bodySmall,
@@ -293,7 +365,7 @@ private fun DeviceCard(d: Tracked, now: Long, onClick: () -> Unit) {
                     )
                 }
             }
-            FilledTonalButton(onClick = onClick) { Text("Track") }
+            FilledTonalButton(onClick = onTrack) { Text("Track") }
         }
     }
 }
@@ -334,6 +406,16 @@ private fun SettingsDialog(settings: Settings, onChange: (Settings) -> Unit, onD
                 }
                 SettingRow("Show all devices", "List every Bluetooth device, not just trackers and cameras", settings.showAll) {
                     onChange(settings.copy(showAll = it))
+                }
+                Text("Pop up new devices", fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 6.dp))
+                PopupMode.entries.forEach { mode ->
+                    Row(
+                        Modifier.fillMaxWidth().selectable(selected = settings.popups == mode) { onChange(settings.copy(popups = mode)) },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(selected = settings.popups == mode, onClick = { onChange(settings.copy(popups = mode)) })
+                        Text(mode.label)
+                    }
                 }
             }
         },

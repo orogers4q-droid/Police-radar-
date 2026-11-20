@@ -67,7 +67,11 @@ import com.bleradar.app.detect.Trend
 import androidx.compose.material3.TextButton
 import androidx.core.content.ContextCompat
 import com.bleradar.app.scan.HuntFeedback
+import com.bleradar.app.scan.DeviceInfo
 import com.bleradar.app.scan.RssiPoller
+import com.bleradar.app.detect.Threat
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.text.font.FontFamily
 import com.bleradar.app.scan.Scanner
 import com.bleradar.app.scan.Tracked
 import kotlinx.coroutines.delay
@@ -102,6 +106,17 @@ fun HuntScreen(
         if (!ok) onSettings(settings.copy(fastMode = false))
     }
     var fastState by remember { mutableStateOf<RssiPoller.State?>(null) }
+    // What the device said about itself when Fast mode connected; pops up for a few seconds.
+    var identified by remember { mutableStateOf<DeviceInfo?>(null) }
+    LaunchedEffect(identified) {
+        if (identified != null) {
+            delay(6_000)
+            identified = null
+        }
+    }
+    // Live copy of the device, so the name and type stay up to date.
+    val devices by Scanner.devices.collectAsStateWithLifecycle()
+    val live = devices[target.key] ?: target
     val fastActive = settings.fastMode && !wifi && scanning
     DisposableEffect(fastActive, connectGranted, target.key) {
         if (!fastActive || !connectGranted) {
@@ -115,6 +130,10 @@ fun HuntScreen(
                 tick++
             },
             onState = { fastState = it },
+            onInfo = { info ->
+                Scanner.rememberDeviceInfo(target.latest.address, info)
+                identified = info
+            },
         )
         poller.start()
         onDispose {
@@ -162,7 +181,7 @@ fun HuntScreen(
     val lost = tracker.isLost(now, if (wifi) 75_000 else 6_000)
     val closeness = Signal.closeness(smoothed)
     val trend = tracker.trend()
-    val kind = target.classification.kind
+    val kind = live.classification.kind
     val lastSeenAgo = ((now - tracker.lastSeenMs) / 1000).coerceAtLeast(0)
 
     Scaffold(
@@ -180,15 +199,18 @@ fun HuntScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(
-                "${if (wifi) "📶" else kind.emoji} ${target.latest.name ?: kind.label}",
-                fontSize = 20.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
-            )
-            Text(
-                "${kind.label} · ${target.latest.address.uppercase()}",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodySmall,
-            )
+            TrackingHeader(live, wifi)
+            identified?.let { info ->
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = SafeGreen.copy(alpha = 0.18f)),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column(Modifier.padding(12.dp)) {
+                        Text("🔎 DEVICE IDENTIFIED ITSELF", color = SafeGreen, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Text(info.summary, fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                    }
+                }
+            }
 
             CloseMeter(
                 closeness = if (lost) 0f else closeness,
@@ -353,6 +375,38 @@ private fun Tips(wifi: Boolean, group: Group, longLost: Boolean) {
                 Text("• Check smoke alarms, clocks, chargers, air purifiers, picture frames, vents and anything pointing at the bed or shower. Then use the Lens finder.")
             } else {
                 Text("• Trackers hide in bag linings, coat pockets, under car seats, in wheel arches and behind bumpers.")
+            }
+        }
+    }
+}
+
+/** "You're tracking: AirPods Pro" header, so it's always clear what the beeps are for. */
+@Composable
+private fun TrackingHeader(d: Tracked, wifi: Boolean) {
+    val kind = d.classification.kind
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(if (wifi) "📶" else d.identity.emoji, fontSize = 34.sp)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    if (kind.threat == Threat.NONE) "YOU'RE TRACKING" else "TRACKING: ${kind.label.uppercase()}",
+                    color = if (kind.threat == Threat.NONE) RadarCyan else threatColor(kind.threat),
+                    fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                )
+                Text(d.title, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                val what = if (d.title == d.identity.what) d.identity.maker else d.identity.line
+                if (what != null) Text(what, color = RadarCyan, style = MaterialTheme.typography.bodyMedium)
+                d.deviceInfo?.let { Text("Says it's: ${it.summary}", color = SafeGreen, style = MaterialTheme.typography.bodySmall) }
+                Text(
+                    d.latest.address.uppercase(),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontFamily = FontFamily.Monospace,
+                )
             }
         }
     }
